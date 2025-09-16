@@ -1,0 +1,12 @@
+services:
+  app:
+    build: ./app
+    container_name: devops-demo-app
+    ports:
+      - "4000:3000"
+
+  metrics:
+    build: ./metrics
+    container_name: devops-metrics
+    depends_on:
+      - app
