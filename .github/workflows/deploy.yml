@@ -1,0 +1,37 @@
+name: CI/CD Deploy to WSL
+
+on:
+  push:
+    branches:
+      - main   # runs on push to main branch
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up SSH
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      - name: Build Docker image
+        run: docker build -t myapp:latest .
+
+      - name: Save Docker image as tar
+        run: docker save myapp:latest -o myapp.tar
+
+      - name: Copy image to server
+        run: scp -o StrictHostKeyChecking=no myapp.tar ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:/home/${{ secrets.SSH_USER }}
+
+      - name: Deploy on server
+        run: |
+          ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "
+            docker load -i ~/myapp.tar &&
+            docker stop myapp || true &&
+            docker rm myapp || true &&
+            docker run -d --name myapp -p 3000:3000 myapp:latest
+          "
