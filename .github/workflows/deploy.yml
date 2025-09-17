@@ -1,37 +1,30 @@
 name: CI/CD Deploy to WSL
 
 on:
-  push:
-    branches:
-      - main   # runs on push to main branch
+  workflow_run:
+    workflows: ["CI/CD Pipeline"]   # depends on docker.yml
+    types:
+      - completed
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up SSH
-        uses: webfactory/ssh-agent@v0.9.0
+      - name: Deploy to WSL2 server
+        uses: appleboy/ssh-action@v1.0.3
         with:
-          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_KEY }}
+          script: |
+            echo "Pulling latest Docker image..."
+            docker pull joshuachigozie26/devops-demo-app:latest
 
-      - name: Build Docker image
-        run: docker build -t myapp:latest .
+            echo "Stopping old container (if exists)..."
+            docker stop myapp || true
+            docker rm myapp || true
 
-      - name: Save Docker image as tar
-        run: docker save myapp:latest -o myapp.tar
-
-      - name: Copy image to server
-        run: scp -o StrictHostKeyChecking=no myapp.tar ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:/home/${{ secrets.SSH_USER }}
-
-      - name: Deploy on server
-        run: |
-          ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "
-            docker load -i ~/myapp.tar &&
-            docker stop myapp || true &&
-            docker rm myapp || true &&
-            docker run -d --name myapp -p 3000:3000 myapp:latest
-          "
+            echo "Starting new container..."
+            docker run -d --name myapp -p 3000:3000 joshuachigozie26/devops-demo-app:latest
