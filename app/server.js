@@ -3,7 +3,7 @@ const app = express();
 const PORT = 3000;
 
 app.get("/", (req, res) => {
-  res.send("This is Hellen's completed simple DevOps app for my demo presentation");
+  res.send("This is Hellen's completed DevOps app for my demo presentation");
 });
 
 if (require.main === module) {
